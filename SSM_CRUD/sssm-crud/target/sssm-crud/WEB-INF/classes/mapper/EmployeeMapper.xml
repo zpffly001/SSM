@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.crud.dao.EmployeeMapper">
+  <resultMap id="BaseResultMap" type="com.atguigu.crud.bean.Employee">
+    <id column="emp_id" jdbcType="INTEGER" property="empId" />
+    <result column="emp_name" jdbcType="VARCHAR" property="empName" />
+    <result column="gender" jdbcType="CHAR" property="gender" />
+    <result column="email" jdbcType="VARCHAR" property="email" />
+    <result column="d_id" jdbcType="INTEGER" property="dId" />
+  </resultMap>
+
+  <resultMap id="WithDeptResultMap" type="com.atguigu.crud.bean.Employee">
+    <id column="emp_id" jdbcType="INTEGER" property="empId" />
+    <result column="emp_name" jdbcType="VARCHAR" property="empName" />
+    <result column="gender" jdbcType="CHAR" property="gender" />
+    <result column="email" jdbcType="VARCHAR" property="email" />
+    <result column="d_id" jdbcType="INTEGER" property="dId" />
+    <!--封装我们在javabean中新定义的属性值，即部门名称,并对新定义的属性进行关联-->
+    <association property="department" javaType="com.atguigu.crud.bean.Department">
+      <!--查询时会带上dept_id,dept_name这两列,且property属性是Deaprtment的jababean中所定义的deptId-->
+      <id column="dept_id" property="deptId"/>
+      <!--这里的result标签定义我们下面在查询语句中所对应的dept_id,dept_name-->
+      <!--property标签中的属性都是Deaprtment的jababean所定义过的属性-->
+      <result column="dept_name" property="deptName"/>
+    </association>
+  </resultMap>
+
+  <!--定义了按条件的条件封装语句，为后面的条件操作做准备-->
+  <sql id="Example_Where_Clause">
+    <where>
+      <foreach collection="oredCriteria" item="criteria" separator="or">
+        <if test="criteria.valid">
+          <trim prefix="(" prefixOverrides="and" suffix=")">
+            <foreach collection="criteria.criteria" item="criterion">
+              <choose>
+                <when test="criterion.noValue">
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue">
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue">
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue">
+                  and ${criterion.condition}
+                  <foreach close=")" collection="criterion.value" item="listItem" open="(" separator=",">
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Update_By_Example_Where_Clause">
+    <where>
+      <foreach collection="example.oredCriteria" item="criteria" separator="or">
+        <if test="criteria.valid">
+          <trim prefix="(" prefixOverrides="and" suffix=")">
+            <foreach collection="criteria.criteria" item="criterion">
+              <choose>
+                <when test="criterion.noValue">
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue">
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue">
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue">
+                  and ${criterion.condition}
+                  <foreach close=")" collection="criterion.value" item="listItem" open="(" separator=",">
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+
+  <!--把表里的全部字段提取出来，为后面操作做准备-->
+  <!--因为此表d_id字段是外键关联，只是部门id,而我们要的是部门名称，所以还要对逆向工程生成的代码进行优化，即：select语句(新增查询方法)-->
+  <sql id="Base_Column_List">
+    emp_id, emp_name, gender, email, d_id
+  </sql>
+
+  <!--自己编写一个sql标签，包含dept表中的部门名称-->
+  <sql id="WithDept_Column_List">
+    <!--这里的别名是和selectByExampleWithDept里面的查询语句的别名相同的-->
+    e.emp_id, e.emp_name, e.gender, e.email, e.d_id, d.dept_id, d.dept_name
+  </sql>
+
+  <!--List<Employee> selectByExampleWithDept(EmployeeExample example);
+      Employee selectByPrimaryKeyWithDept(Integer empId);-->
+  <!--select emp_id, emp_name, gender, email, d_id, dept_id, dept_name
+      from tbl_emp
+      left join tbl_dept on tbl_emp.`d_id`=tbl_dept.`dept_id`
+      联合的表，语句left join tbl_dept
+      联合条件，语句on tbl_emp.`d_id`=tbl_dept.`dept_id`-->
+  <select id="selectByExampleWithDept" resultMap="WithDeptResultMap">
+    select
+    <if test="distinct">
+      distinct
+    </if>
+    <!--修改后的查询条件-->
+    <include refid="WithDept_Column_List" />
+    <!--修改后的查询语句,且分别给两个表起个别名-->
+    from tbl_emp e
+    left join tbl_dept d on e.`d_id`=d.`dept_id`
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+  </select>
+
+  <!--按照主键的查询，也是查出员工部门名的，且有自定义的返回值-->
+  <select id="selectByPrimaryKeyWithDept" resultMap="WithDeptResultMap">
+    select
+    <include refid="WithDept_Column_List" />
+    from tbl_emp e
+    left join tbl_dept d on e.`d_id`=d.`dept_id`
+    where emp_id = #{empId,jdbcType=INTEGER}
+  </select>
+
+  <!--带条件的查询-->
+  <select id="selectByExample" parameterType="com.atguigu.crud.bean.EmployeeExample" resultMap="BaseResultMap">
+    select
+    <if test="distinct">
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from tbl_emp
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+  </select>
+  <!--按照主键查询查询-->
+  <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select 
+    <include refid="Base_Column_List" />
+    from tbl_emp
+    where emp_id = #{empId,jdbcType=INTEGER}
+  </select>
+  <!--按照主键查询删除-->
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+    delete from tbl_emp
+    where emp_id = #{empId,jdbcType=INTEGER}
+  </delete>
+  <!--带条件的删除-->
+  <delete id="deleteByExample" parameterType="com.atguigu.crud.bean.EmployeeExample">
+    delete from tbl_emp
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.atguigu.crud.bean.Employee">
+    insert into tbl_emp (emp_id, emp_name, gender, 
+      email, d_id)
+    values (#{empId,jdbcType=INTEGER}, #{empName,jdbcType=VARCHAR}, #{gender,jdbcType=CHAR}, 
+      #{email,jdbcType=VARCHAR}, #{dId,jdbcType=INTEGER})
+  </insert>
+  <!--按照有选择的进行插入-->
+  <insert id="insertSelective" parameterType="com.atguigu.crud.bean.Employee">
+    insert into tbl_emp
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="empId != null">
+        emp_id,
+      </if>
+      <if test="empName != null">
+        emp_name,
+      </if>
+      <if test="gender != null">
+        gender,
+      </if>
+      <if test="email != null">
+        email,
+      </if>
+      <if test="dId != null">
+        d_id,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="empId != null">
+        #{empId,jdbcType=INTEGER},
+      </if>
+      <if test="empName != null">
+        #{empName,jdbcType=VARCHAR},
+      </if>
+      <if test="gender != null">
+        #{gender,jdbcType=CHAR},
+      </if>
+      <if test="email != null">
+        #{email,jdbcType=VARCHAR},
+      </if>
+      <if test="dId != null">
+        #{dId,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <!--按照条件进行统计-->
+  <select id="countByExample" parameterType="com.atguigu.crud.bean.EmployeeExample" resultType="java.lang.Long">
+    select count(*) from tbl_emp
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <!--按照条件有选择的进行更新-->
+  <update id="updateByExampleSelective" parameterType="map">
+    update tbl_emp
+    <set>
+      <if test="record.empId != null">
+        emp_id = #{record.empId,jdbcType=INTEGER},
+      </if>
+      <if test="record.empName != null">
+        emp_name = #{record.empName,jdbcType=VARCHAR},
+      </if>
+      <if test="record.gender != null">
+        gender = #{record.gender,jdbcType=CHAR},
+      </if>
+      <if test="record.email != null">
+        email = #{record.email,jdbcType=VARCHAR},
+      </if>
+      <if test="record.dId != null">
+        d_id = #{record.dId,jdbcType=INTEGER},
+      </if>
+    </set>
+    <if test="_parameter != null">
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <!--按照条件进行更新，更新的是全字段-->
+  <update id="updateByExample" parameterType="map">
+    update tbl_emp
+    set emp_id = #{record.empId,jdbcType=INTEGER},
+      emp_name = #{record.empName,jdbcType=VARCHAR},
+      gender = #{record.gender,jdbcType=CHAR},
+      email = #{record.email,jdbcType=VARCHAR},
+      d_id = #{record.dId,jdbcType=INTEGER}
+    <if test="_parameter != null">
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByPrimaryKeySelective" parameterType="com.atguigu.crud.bean.Employee">
+    update tbl_emp
+    <set>
+      <if test="empName != null">
+        emp_name = #{empName,jdbcType=VARCHAR},
+      </if>
+      <if test="gender != null">
+        gender = #{gender,jdbcType=CHAR},
+      </if>
+      <if test="email != null">
+        email = #{email,jdbcType=VARCHAR},
+      </if>
+      <if test="dId != null">
+        d_id = #{dId,jdbcType=INTEGER},
+      </if>
+    </set>
+    where emp_id = #{empId,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.atguigu.crud.bean.Employee">
+    update tbl_emp
+    set emp_name = #{empName,jdbcType=VARCHAR},
+      gender = #{gender,jdbcType=CHAR},
+      email = #{email,jdbcType=VARCHAR},
+      d_id = #{dId,jdbcType=INTEGER}
+    where emp_id = #{empId,jdbcType=INTEGER}
+  </update>
+</mapper>

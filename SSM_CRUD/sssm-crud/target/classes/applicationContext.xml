@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+    <!--上面这几行代码是为了下面能引入context,bean等标签-->
+
+    <!--注册组件扫描器，即：Spring扫描器和SpringMVC相反除了Controller控制器不扫描，其他都扫描-->
+    <context:component-scan base-package="com.atguigu">
+        <!--不再扫描controller注解-->
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+    <!--=============================数据源的配置===================================-->
+    <!--引入数据库配置文件-->
+    <context:property-placeholder location="classpath:dbconfig.properties"/>
+    <!--数据库连接池-->
+    <bean id="pooledDataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="url" value="${jdbc.jdbcUrl}?useUnicode=true&amp;characterEncoding=utf8"/>
+        <property name="username" value="${jdbc.user}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="driverClassName" value="${jdbc.driverClass}"/>
+    </bean>
+
+    <!--以上几步配置了数据源-->
+    <!--=============================数据源的配置结束=================================-->
+
+    <!--=============================mybatis的整合配置===================================-->
+    <!--接下来进行Spring和MyBatis的整合,即：让spring管理SqlSessionFactory-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!--指定mybatis全局配置文件的位置-->
+        <property name="configLocation" value="classpath:mybatis-config.xml"></property>
+        <property name="dataSource" ref="pooledDataSource"></property>
+        <!--指定mybatis,mapper文件的位置-->
+        <property name="mapperLocations" value="classpath:mapper/*.xml"></property>
+    </bean>
+
+    <!--配置扫描器，将mybatis接口的实现加入到ioc容器中-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!--扫描所有的dao接口的实现，加入到ioc容器-->
+        <property name="basePackage" value="com.atguigu.crud.dao"></property>
+    </bean>
+
+    <!--配置一个可以执行批量的sqlSession-->
+    <bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory"></constructor-arg>
+        <constructor-arg name="executorType" value="BATCH"></constructor-arg>
+    </bean>
+    <!--=============================mybatis的整合配置结束=================================-->
+
+    <!--=============================事务控制=================================-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <!--控制住数据源,告诉事务管理器数据源是哪个-->
+        <property name="dataSource" ref="pooledDataSource"></property>
+    </bean>
+
+    <!--有两种事务开启方法，1开启基于注解的事务，2使用xml配置形式的事务-->
+    <aop:config>
+        <!--切入点表达式，想要切入到哪些里面进行事务控制,execution()里面第一个是返回权限控制符public可以不写,返回值类型所有*-->
+        <aop:pointcut expression="execution(* com.atguigu.crud.service..*(..))" id="txPoint"/>
+        <!--指定配置事务增强，和指定切入点表达式-->
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint"/>
+    </aop:config>
+
+    <!--配置事务增强，事务如何切入-->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <!--代表切入点切入的所有方法都是事务方法-->
+            <tx:method name="*"/>
+            <!--对以get开始的所有方法，进行特殊的事务控制-->
+            <tx:method name="get*" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+    <!--=============================事务控制结束===============================-->
+
+    <!--Spring配置文件的核心点（数据源，与mybatis的整合，事务控制）-->
+
+</beans>
